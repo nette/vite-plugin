@@ -39,8 +39,8 @@
 		"typescript-eslint": "^8.32.1"
 	},
 	"scripts": {
-		"build": "tsc",
-		"prepare": "npm run build",
+		"build": "tsc && cp src/dev-server-index.html dist/",
+		"prepare": "npm run build && cp src/dev-server-index.html dist/",
 		"test": "npx tsx node_modules/mocha/bin/mocha \"tests/**/*.ts\"",
 		"lint": "eslint --cache",
 		"lint:fix": "eslint --cache --fix"
