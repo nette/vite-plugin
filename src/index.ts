@@ -1,6 +1,10 @@
+// Portions adapted from Laravel (https://laravel.com), MIT licensed.
+
 import path from 'path';
 import fs from 'fs';
-import { defaultAllowedOrigins, HttpServer, type PluginOption, ResolvedConfig, type ViteDevServer } from 'vite';
+import { fileURLToPath } from 'url';
+import colors from 'picocolors';
+import {defaultAllowedOrigins, HttpServer, type PluginOption, ResolvedConfig, type ViteDevServer} from 'vite';
 
 interface PluginConfig {
 	infoFile?: string;
@@ -38,10 +42,16 @@ function generateInfoFile(httpServer: HttpServer): void {
 		let port = (httpServer.address() as any).port;
 		let devServerUrl = `${protocol}://${host}:${port}`;
 
+
+
 		writeJson(infoFilePath, { devServer: devServerUrl });
 
 		// Update Vite server's origin field so other parts of Vite or downstream tools can pick it up
 		resolvedConfig.server.origin = devServerUrl;
+
+		setTimeout(() => {
+			console.log(`\n  ${colors.blue(`${colors.bold('Nette')} ${netteVersion()}`)}  ${colors.dim('plugin')} ${colors.bold(`v${nettepluginVersion()}`)}`)
+		}, 200)
 	});
 
 	httpServer.on('close', () => {
@@ -119,6 +129,40 @@ export default function vitePluginNette(config: PluginConfig = {}): PluginOption
 			if (resolvedConfig.command === 'serve' && devServer.httpServer) {
 				generateInfoFile(devServer.httpServer);
 			}
+
+			return () => devServer.middlewares.use((req, res, next) => {
+				if (req.url === '/index.html') {
+					res.statusCode = 404
+
+					res.end(
+						fs.readFileSync(path.join(dirname(), 'dev-server-index.html')).toString()
+					)
+				}
+
+				next()
+			})
 		},
 	};
+}
+
+function netteVersion(): string {
+	try {
+		const composer = JSON.parse(fs.readFileSync('composer.lock').toString())
+
+		return composer.packages?.find((composerPackage: {name: string}) => composerPackage.name === 'nette/application')?.version ?? ''
+	} catch {
+		return ''
+	}
+}
+
+function nettepluginVersion(): string {
+	try {
+		return JSON.parse(fs.readFileSync(path.join(dirname(), '../package.json')).toString())?.version
+	} catch {
+		return ''
+	}
+}
+
+function dirname(): string {
+	return fileURLToPath(new URL('.', import.meta.url))
 }
