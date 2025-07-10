@@ -27,16 +27,16 @@
 		}
 	},
 	"peerDependencies": {
-		"vite": "^6.0.0"
+		"vite": "^6.0.0 || ^7.0.0"
 	},
 	"devDependencies": {
-		"@nette/eslint-plugin": "^0.1.2",
-		"@types/node": "^22.15.29",
-		"eslint": "^9.26.0",
-		"mocha": "^11.2.2",
-		"tsx": "^4.19.4",
+		"@nette/eslint-plugin": "^0.2.2",
+		"@types/node": "^24.0.12",
+		"eslint": "^9.30.1",
+		"mocha": "^11.7.1",
+		"tsx": "^4.20.3",
 		"typescript": "^5.8.3",
-		"typescript-eslint": "^8.32.1"
+		"typescript-eslint": "^8.36.0"
 	},
 	"scripts": {
 		"build": "tsc",

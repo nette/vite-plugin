@@ -4,6 +4,7 @@ import { defaultAllowedOrigins, HttpServer, type PluginOption, ResolvedConfig, t
 
 interface PluginConfig {
 	infoFile?: string;
+	host?: string;
 	entry?: string | string[];
 }
 
@@ -34,13 +35,20 @@ function generateInfoFile(httpServer: HttpServer): void {
 
 	httpServer.on('listening', () => {
 		let protocol = resolvedConfig.server.https ? 'https' : 'http';
-		let host = resolvedConfig.server.host || 'localhost';
+		let host = pluginConfig.host || resolvedConfig.server.host || 'localhost';
 		let port = (httpServer.address() as any).port;
-		let devServerUrl = `${protocol}://${host}:${port}`;
+
+		// Accessing from http://0.0.0.0:{port} causes redirects to localhost.
+		if (host === true || host === '0.0.0.0') {
+			host = 'localhost';
+		}
+
+		// Port 80 does not need to be included in the URL.
+		let devServerUrl = port === 80 ? `${protocol}://${host}` : `${protocol}://${host}:${port}`;
 
 		writeJson(infoFilePath, { devServer: devServerUrl });
 
-		// Update Vite server's origin field so other parts of Vite or downstream tools can pick it up
+		// Update Vite server's origin field so other parts of Vite or downstream tools can pick it up.
 		resolvedConfig.server.origin = devServerUrl;
 	});
 
@@ -72,6 +80,7 @@ function getDefaultOutDir(): string {
 export default function vitePluginNette(config: PluginConfig = {}): PluginOption {
 	pluginConfig = {
 		infoFile: config.infoFile ?? '.vite/nette.json',
+		host: config.host,
 		entry: config.entry,
 	};
 
@@ -81,11 +90,16 @@ export default function vitePluginNette(config: PluginConfig = {}): PluginOption
 		config(userConfig) {
 			let root = userConfig.root ?? 'assets';
 			let protocol = userConfig.server?.https ? 'https' : 'http';
-			let host = userConfig.server?.host || 'localhost';
+			let host = pluginConfig.host || userConfig.server?.host || 'localhost';
 			let entry;
+
 			if (pluginConfig.entry) {
 				entry = (Array.isArray(pluginConfig.entry) ? pluginConfig.entry : [pluginConfig.entry])
 					.map((entry) => path.resolve(root, entry));
+			}
+
+			if (host === true || host === '0.0.0.0') {
+				host = 'localhost';
 			}
 
 			return {
@@ -106,6 +120,7 @@ export default function vitePluginNette(config: PluginConfig = {}): PluginOption
 							`${protocol}://${host}`,
 						],
 					},
+					allowedHosts: userConfig.server?.allowedHosts ?? host === 'localhost' ? undefined : [host], // Custom host needs to be included to work properly during docker development
 					origin: '', // will be overridden later in generateInfoFile()
 				},
 			};

@@ -96,6 +96,53 @@ describe('vite-plugin-nette', () => {
 			assert.ok(config.server.cors.origin.includes('http://localhost'));
 		});
 
+		it('should configure CORS and allowed hosts with custom host from plugin options', () => {
+			fs.mkdirSync('www', { recursive: true });
+			const plugin = vitePluginNette({ host: '192.168.1.200' });
+			const userConfig = {
+				server: { host: true },
+			};
+			const config = plugin.config(userConfig);
+
+			assert.ok(config.server.cors);
+			assert.ok(Array.isArray(config.server.cors.origin));
+			assert.ok(config.server.cors.origin.includes('http://192.168.1.200'));
+
+			assert.ok(Array.isArray(config.server.allowedHosts));
+			assert.ok(config.server.allowedHosts.includes('192.168.1.200'));
+		});
+
+		it('should replace host value "true" with localhost', () => {
+			fs.mkdirSync('www', { recursive: true });
+			const plugin = vitePluginNette();
+			const userConfig = {
+				server: { host: true },
+			};
+			const config = plugin.config(userConfig);
+
+			assert.ok(config.server.cors);
+			assert.ok(Array.isArray(config.server.cors.origin));
+			assert.ok(config.server.cors.origin.includes('http://localhost'));
+
+			// Allowed hosts include localhost by default and we do not need to set it
+			assert.ok(config.server.allowedHosts === undefined);
+		});
+
+		it('should replace host value "0.0.0.0" with localhost', () => {
+			fs.mkdirSync('www', { recursive: true });
+			const plugin = vitePluginNette();
+			const userConfig = {
+				server: { host: '0.0.0.0' },
+			};
+			const config = plugin.config(userConfig);
+
+			assert.ok(config.server.cors);
+			assert.ok(Array.isArray(config.server.cors.origin));
+			assert.ok(config.server.cors.origin.includes('http://localhost'));
+
+			assert.ok(config.server.allowedHosts === undefined);
+		});
+
 		it('should handle HTTPS configuration', () => {
 			const plugin = vitePluginNette();
 			const userConfig = {
