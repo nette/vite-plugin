@@ -10,10 +10,14 @@ interface PluginConfig {
 }
 
 /**
- * Falls back to localhost for wildcard hosts, since http://0.0.0.0 is not usable by a browser.
+ * Falls back to localhost for wildcard hosts, since http://0.0.0.0 (or IPv6 ::) is not usable by a browser.
+ * Wraps IPv6 literals in brackets so they form a valid URL authority.
  */
 function normalizeHost(host: string | boolean | undefined): string {
-	return !host || host === true || host === '0.0.0.0' ? 'localhost' : host;
+	if (!host || host === true || host === '0.0.0.0' || host === '::') {
+		return 'localhost';
+	}
+	return host.includes(':') && !host.startsWith('[') ? `[${host}]` : host;
 }
 
 /**

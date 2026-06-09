@@ -243,6 +243,72 @@ describe('info file generation', () => {
 		plugin.configureServer(mockDevServer);
 	});
 
+	it('should replace IPv6 wildcard "::" with localhost in info file', (done) => {
+		const plugin = vitePluginNette();
+
+		const mockConfig = {
+			command: 'serve',
+			root: process.cwd(),
+			build: { outDir: path.join(process.cwd(), 'www', 'assets') },
+			server: { https: false, host: '::', origin: '' },
+		};
+		plugin.configResolved(mockConfig);
+
+		const mockDevServer = {
+			httpServer: {
+				on: (event, callback) => {
+					if (event === 'listening') {
+						setTimeout(() => {
+							callback();
+
+							const infoFilePath = path.join(process.cwd(), 'www', 'assets', '.vite', 'nette.json');
+							const infoData = JSON.parse(fs.readFileSync(infoFilePath, 'utf8'));
+							assert.equal(infoData.devServer, 'http://localhost:5173');
+
+							done();
+						}, 10);
+					}
+				},
+				address: () => ({ port: 5173 }),
+			},
+		};
+
+		plugin.configureServer(mockDevServer);
+	});
+
+	it('should wrap IPv6 literal host in brackets in info file', (done) => {
+		const plugin = vitePluginNette();
+
+		const mockConfig = {
+			command: 'serve',
+			root: process.cwd(),
+			build: { outDir: path.join(process.cwd(), 'www', 'assets') },
+			server: { https: false, host: '::1', origin: '' },
+		};
+		plugin.configResolved(mockConfig);
+
+		const mockDevServer = {
+			httpServer: {
+				on: (event, callback) => {
+					if (event === 'listening') {
+						setTimeout(() => {
+							callback();
+
+							const infoFilePath = path.join(process.cwd(), 'www', 'assets', '.vite', 'nette.json');
+							const infoData = JSON.parse(fs.readFileSync(infoFilePath, 'utf8'));
+							assert.equal(infoData.devServer, 'http://[::1]:5173');
+
+							done();
+						}, 10);
+					}
+				},
+				address: () => ({ port: 5173 }),
+			},
+		};
+
+		plugin.configureServer(mockDevServer);
+	});
+
 	it('should replace host value "0.0.0.0" with localhost in info file', (done) => {
 		const plugin = vitePluginNette();
 
