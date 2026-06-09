@@ -1,5 +1,6 @@
 import path from 'path';
 import fs from 'fs';
+import type { AddressInfo } from 'net';
 import { defaultAllowedOrigins, HttpServer, type PluginOption, ResolvedConfig, type ViteDevServer } from 'vite';
 
 interface PluginConfig {
@@ -13,6 +14,14 @@ interface PluginConfig {
  */
 function normalizeHost(host: string | boolean | undefined): string {
 	return !host || host === true || host === '0.0.0.0' ? 'localhost' : host;
+}
+
+/**
+ * Builds a dev server URL, omitting the port when it is the protocol's default.
+ */
+function buildDevServerUrl(protocol: 'http' | 'https', host: string, port: number): string {
+	let defaultPort = protocol === 'https' ? 443 : 80;
+	return `${protocol}://${host}` + (port === defaultPort ? '' : `:${port}`);
 }
 
 /**
@@ -41,11 +50,10 @@ function generateInfoFile(httpServer: HttpServer, resolvedConfig: ResolvedConfig
 		// A user-defined origin (e.g. behind a reverse proxy) wins over the local socket.
 		let devServerUrl = resolvedConfig.server.origin;
 		if (!devServerUrl) {
-			let protocol = resolvedConfig.server.https ? 'https' : 'http';
+			let protocol: 'http' | 'https' = resolvedConfig.server.https ? 'https' : 'http';
 			let host = normalizeHost(pluginConfig.host || resolvedConfig.server.host);
-			let port = (httpServer.address() as any).port;
-			let defaultPort = protocol === 'https' ? 443 : 80;
-			devServerUrl = `${protocol}://${host}` + (port === defaultPort ? '' : `:${port}`);
+			let port = (httpServer.address() as AddressInfo).port;
+			devServerUrl = buildDevServerUrl(protocol, host, port);
 
 			// Set the origin so Vite rewrites asset URLs to the dev server, not the backend.
 			resolvedConfig.server.origin = devServerUrl;
