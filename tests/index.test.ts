@@ -249,26 +249,20 @@ describe('vite-plugin-nette', () => {
 			plugin.configureServer(mockDevServer);
 		});
 
-		it('should not configure server for build command', () => {
+		it('should not configure server in middleware mode (no httpServer)', () => {
 			const plugin = vitePluginNette();
 
-			// Mock resolved config for build
 			plugin.configResolved({
-				command: 'build',
+				command: 'serve',
 				root: process.cwd(),
-				build: { outDir: 'dist' },
+				build: { outDir: path.join(process.cwd(), 'www', 'assets') },
 				server: { https: false, host: 'localhost' },
 			});
 
-			const mockDevServer = {
-				httpServer: {
-					on: () => {
-						throw new Error('Should not be called for build command');
-					},
-				},
-			};
+			// In middleware mode Vite provides no httpServer, so nothing should happen.
+			const mockDevServer = { httpServer: null };
 
-			// Should not throw or call httpServer.on
+			// Should not throw
 			plugin.configureServer(mockDevServer);
 		});
 	});

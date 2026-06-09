@@ -8,9 +8,6 @@ interface PluginConfig {
 	entry?: string | string[];
 }
 
-let resolvedConfig: ResolvedConfig;
-let pluginConfig: PluginConfig;
-
 /**
  * Falls back to localhost for wildcard hosts, since http://0.0.0.0 is not usable by a browser.
  */
@@ -33,7 +30,7 @@ function writeJson(filePath: string, data: any): void {
  * Once the HTTP server starts listening, generate a JSON file containing the dev server URL.
  * Also sets the Vite server's `origin` to the same URL for use elsewhere.
  */
-function generateInfoFile(httpServer: HttpServer): void {
+function generateInfoFile(httpServer: HttpServer, resolvedConfig: ResolvedConfig, pluginConfig: PluginConfig): void {
 	let infoFilePath = path.resolve(
 		resolvedConfig.root,
 		resolvedConfig.build.outDir,
@@ -83,11 +80,12 @@ function getDefaultOutDir(): string {
 
 
 export default function vitePluginNette(config: PluginConfig = {}): PluginOption {
-	pluginConfig = {
+	let pluginConfig: PluginConfig = {
 		infoFile: config.infoFile ?? '.vite/nette.json',
 		host: config.host,
 		entry: config.entry,
 	};
+	let resolvedConfig: ResolvedConfig;
 
 	return {
 		name: 'vite-plugin-nette',
@@ -132,8 +130,9 @@ export default function vitePluginNette(config: PluginConfig = {}): PluginOption
 		},
 
 		configureServer(devServer: ViteDevServer) {
-			if (resolvedConfig.command === 'serve' && devServer.httpServer) {
-				generateInfoFile(devServer.httpServer);
+			// This hook only runs in serve mode; httpServer is null in middleware mode.
+			if (devServer.httpServer) {
+				generateInfoFile(devServer.httpServer, resolvedConfig, pluginConfig);
 			}
 		},
 	};
