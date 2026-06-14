@@ -187,7 +187,7 @@ describe('vite-plugin-nette', () => {
 
 			assert.throws(() => {
 				plugin.config(userConfig);
-			}, /The output directory .* does not exist/);
+			}, /The document root .* was not found/);
 		});
 
 		it('should respect user-provided outDir', () => {

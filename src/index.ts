@@ -91,7 +91,7 @@ function getDefaultOutDir(): string {
 	let assetsDirectory = path.join(wwwDirectory, 'assets');
 
 	if (!fs.existsSync(wwwDirectory)) {
-		throw new Error(`The output directory "${assetsDirectory}" does not exist. Please set "build.outDir" in your Vite config.`);
+		throw new Error(`The document root "${wwwDirectory}" was not found. Are you running Vite from the project root? Otherwise set "build.outDir" in your Vite config.`);
 	}
 
 	return assetsDirectory;
