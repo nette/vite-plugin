@@ -21,6 +21,13 @@ function normalizeHost(host: string | boolean | undefined): string {
 }
 
 /**
+ * Escapes a string for literal use inside a regular expression.
+ */
+function escapeRegExp(str: string): string {
+	return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
  * Builds a dev server URL, omitting the port when it is the protocol's default.
  */
 function buildDevServerUrl(protocol: 'http' | 'https', host: string, port: number): string {
@@ -104,7 +111,6 @@ export default function vitePluginNette(config: PluginConfig = {}): PluginOption
 
 		config(userConfig) {
 			let root = userConfig.root ?? 'assets';
-			let protocol = userConfig.server?.https ? 'https' : 'http';
 			let host = normalizeHost(pluginConfig.host || userConfig.server?.host);
 			let entry;
 			if (pluginConfig.entry) {
@@ -127,7 +133,9 @@ export default function vitePluginNette(config: PluginConfig = {}): PluginOption
 					cors: userConfig.server?.cors ?? {
 						origin: [ // Include both Vite's default allowed origins and this project's host
 							defaultAllowedOrigins,
-							`${protocol}://${host}`,
+							// Allow the host over http or https on any port: the PHP app and the dev
+							// server always differ in port, and often in scheme too.
+							new RegExp(`^https?://${escapeRegExp(host)}(?::\\d+)?$`),
 						],
 					},
 					// Whitelist a custom host so it works behind a proxy (e.g. Docker).

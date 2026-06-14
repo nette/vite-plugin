@@ -9,6 +9,11 @@ import { cleanupTempDir } from './utils.ts';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Whether the CORS origin list (strings and/or RegExps) allows the given URL.
+function corsAllows(origin, url) {
+	return origin.some((o) => (o instanceof RegExp ? o.test(url) : o === url));
+}
+
 describe('vite-plugin-nette', () => {
 	let tempDir: string;
 	let originalCwd: string;
@@ -93,7 +98,9 @@ describe('vite-plugin-nette', () => {
 
 			assert.ok(config.server.cors);
 			assert.ok(Array.isArray(config.server.cors.origin));
-			assert.ok(config.server.cors.origin.includes('http://localhost'));
+			assert.ok(corsAllows(config.server.cors.origin, 'http://localhost'));
+			// Any port and either scheme must be allowed for the project host.
+			assert.ok(corsAllows(config.server.cors.origin, 'https://localhost:8000'));
 		});
 
 		it('should configure CORS and allowed hosts with custom host from plugin options', () => {
@@ -104,7 +111,8 @@ describe('vite-plugin-nette', () => {
 			};
 			const config = plugin.config(userConfig);
 
-			assert.ok(config.server.cors.origin.includes('http://192.168.1.200'));
+			assert.ok(corsAllows(config.server.cors.origin, 'http://192.168.1.200'));
+			assert.ok(corsAllows(config.server.cors.origin, 'https://192.168.1.200:8080'));
 			assert.ok(Array.isArray(config.server.allowedHosts));
 			assert.ok(config.server.allowedHosts.includes('192.168.1.200'));
 		});
@@ -117,7 +125,7 @@ describe('vite-plugin-nette', () => {
 			};
 			const config = plugin.config(userConfig);
 
-			assert.ok(config.server.cors.origin.includes('http://localhost'));
+			assert.ok(corsAllows(config.server.cors.origin, 'http://localhost'));
 			// localhost is allowed by default, no need to whitelist it
 			assert.equal(config.server.allowedHosts, undefined);
 		});
@@ -130,7 +138,7 @@ describe('vite-plugin-nette', () => {
 			};
 			const config = plugin.config(userConfig);
 
-			assert.ok(config.server.cors.origin.includes('http://localhost'));
+			assert.ok(corsAllows(config.server.cors.origin, 'http://localhost'));
 			assert.equal(config.server.allowedHosts, undefined);
 		});
 
@@ -158,14 +166,7 @@ describe('vite-plugin-nette', () => {
 			};
 			const config = plugin.config(userConfig);
 
-			const origins = config.server.cors.origin;
-			const hasHttpsOrigin = origins.some((origin) => {
-				if (typeof origin === 'string') {
-					return origin.includes('https://example.com');
-				}
-				return false;
-			});
-			assert.ok(hasHttpsOrigin);
+			assert.ok(corsAllows(config.server.cors.origin, 'https://example.com'));
 		});
 	});
 
