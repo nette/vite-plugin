@@ -35,6 +35,38 @@ function buildDevServerUrl(protocol: 'http' | 'https', host: string, port: numbe
 	return `${protocol}://${host}` + (port === defaultPort ? '' : `:${port}`);
 }
 
+// Signals are process-global, so the info-file registry and the handlers must be too:
+// registering them per server (and thus per config reload) is what leaked listeners.
+let activeInfoFiles = (new Set<string>);
+let signalHandlersInstalled = false;
+
+function removeAllInfoFiles(): void {
+	for (let file of activeInfoFiles) {
+		fs.rmSync(file, { force: true });
+	}
+}
+
+/**
+ * Installs process-wide handlers (exactly once) that remove every active info file on termination.
+ */
+function installSignalHandlers(): void {
+	if (signalHandlersInstalled) {
+		return;
+	}
+	signalHandlersInstalled = true;
+
+	let onSignal = () => {
+		removeAllInfoFiles();
+		process.exit(0);
+	};
+	process.on('SIGINT', onSignal);
+	process.on('SIGTERM', onSignal);
+	if (process.platform === 'win32') {
+		process.on('SIGBREAK', onSignal); // Ctrl+Break / console window close on Windows
+	}
+	process.on('exit', removeAllInfoFiles); // last resort for any other exit path (sync only)
+}
+
 /**
  * Ensures the directory for `filePath` exists and writes `data` as a formatted JSON file.
  */
@@ -71,15 +103,15 @@ function generateInfoFile(httpServer: HttpServer, resolvedConfig: ResolvedConfig
 		}
 
 		writeJson(infoFilePath, { devServer: devServerUrl });
+		activeInfoFiles.add(infoFilePath);
 	});
 
 	httpServer.on('close', () => {
 		fs.rmSync(infoFilePath, { force: true });
+		activeInfoFiles.delete(infoFilePath);
 	});
 
-	process.on('SIGINT', () => {
-		httpServer.close(() => process.exit(0));
-	});
+	installSignalHandlers();
 }
 
 /**
