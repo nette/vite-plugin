@@ -79,15 +79,22 @@ function writeJson(filePath: string, data: any): void {
 }
 
 /**
- * Once the HTTP server starts listening, generate a JSON file containing the dev server URL.
- * Also sets the Vite server's `origin` to the same URL for use elsewhere.
+ * Absolute path of the info file, resolved from the plugin and Vite config.
  */
-function generateInfoFile(httpServer: HttpServer, resolvedConfig: ResolvedConfig, pluginConfig: PluginConfig): void {
-	let infoFilePath = path.resolve(
+function getInfoFilePath(resolvedConfig: ResolvedConfig, pluginConfig: PluginConfig): string {
+	return path.resolve(
 		resolvedConfig.root,
 		resolvedConfig.build.outDir,
 		pluginConfig.infoFile!,
 	);
+}
+
+/**
+ * Once the HTTP server starts listening, generate a JSON file containing the dev server URL.
+ * Also sets the Vite server's `origin` to the same URL for use elsewhere.
+ */
+function generateInfoFile(httpServer: HttpServer, resolvedConfig: ResolvedConfig, pluginConfig: PluginConfig): void {
+	let infoFilePath = getInfoFilePath(resolvedConfig, pluginConfig);
 
 	httpServer.on('listening', () => {
 		// A user-defined origin (e.g. behind a reverse proxy) wins over the local socket.
@@ -102,7 +109,12 @@ function generateInfoFile(httpServer: HttpServer, resolvedConfig: ResolvedConfig
 			resolvedConfig.server.origin = devServerUrl;
 		}
 
-		writeJson(infoFilePath, { devServer: devServerUrl });
+		// pid/timestamp let a consumer recognise a file left behind by a crashed dev server.
+		writeJson(infoFilePath, {
+			devServer: devServerUrl,
+			pid: process.pid,
+			timestamp: Date.now(),
+		});
 		activeInfoFiles.add(infoFilePath);
 	});
 
@@ -179,6 +191,12 @@ export default function vitePluginNette(config: PluginConfig = {}): PluginOption
 
 		configResolved(config: ResolvedConfig) {
 			resolvedConfig = config;
+
+			// Remove any info file left behind by a crashed dev server, so a production
+			// build is never shadowed by a stale "dev server is running" marker.
+			if (config.command === 'build') {
+				fs.rmSync(getInfoFilePath(config, pluginConfig), { force: true });
+			}
 		},
 
 		configureServer(devServer: ViteDevServer) {

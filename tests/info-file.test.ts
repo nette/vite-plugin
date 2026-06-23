@@ -69,6 +69,57 @@ describe('info file generation', () => {
 		plugin.configureServer(mockDevServer);
 	});
 
+	it('should include pid and timestamp in the info file', (done) => {
+		const plugin = vitePluginNette();
+
+		const mockConfig = {
+			command: 'serve',
+			root: process.cwd(),
+			build: { outDir: path.join(process.cwd(), 'www', 'assets') },
+			server: { https: false, host: 'localhost', origin: '' },
+		};
+		plugin.configResolved(mockConfig);
+
+		const mockDevServer = {
+			httpServer: {
+				on: (event, callback) => {
+					if (event === 'listening') {
+						setTimeout(() => {
+							callback();
+
+							const infoFilePath = path.join(process.cwd(), 'www', 'assets', '.vite', 'nette.json');
+							const infoData = JSON.parse(fs.readFileSync(infoFilePath, 'utf8'));
+							assert.equal(infoData.pid, process.pid);
+							assert.equal(typeof infoData.timestamp, 'number');
+
+							done();
+						}, 10);
+					}
+				},
+				address: () => ({ port: 5173 }),
+			},
+		};
+
+		plugin.configureServer(mockDevServer);
+	});
+
+	it('should remove a stale info file on build', () => {
+		const plugin = vitePluginNette();
+
+		const infoFilePath = path.join(process.cwd(), 'www', 'assets', '.vite', 'nette.json');
+		fs.mkdirSync(path.dirname(infoFilePath), { recursive: true });
+		fs.writeFileSync(infoFilePath, JSON.stringify({ devServer: 'http://localhost:5173' }));
+
+		plugin.configResolved({
+			command: 'build',
+			root: process.cwd(),
+			build: { outDir: path.join(process.cwd(), 'www', 'assets') },
+			server: { https: false, host: 'localhost', origin: '' },
+		});
+
+		assert.ok(!fs.existsSync(infoFilePath), 'Stale info file should be removed on build');
+	});
+
 	it('should remove info file on close', (done) => {
 		const plugin = vitePluginNette();
 
