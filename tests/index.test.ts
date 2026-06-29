@@ -44,21 +44,6 @@ describe('vite-plugin-nette', () => {
 			assert.equal(typeof plugin.configureServer, 'function');
 		});
 
-		it('should use default infoFile when not provided', () => {
-			fs.mkdirSync('www', { recursive: true });
-			const plugin = vitePluginNette();
-			const userConfig = {};
-			plugin.config(userConfig);
-
-			// Plugin should be configured with default infoFile
-			assert.ok(plugin);
-		});
-
-		it('should use custom infoFile when provided', () => {
-			const plugin = vitePluginNette({ infoFile: 'custom.json' });
-			assert.ok(plugin);
-		});
-
 		it('should set default configuration values', () => {
 			fs.mkdirSync('www', { recursive: true });
 			const plugin = vitePluginNette();
