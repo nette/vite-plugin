@@ -287,5 +287,38 @@ describe('vite-plugin-nette', () => {
 			const input = config.build.rollupOptions.input;
 			assert.deepEqual(input, [absPath]);
 		});
+
+		it('should expand glob entry patterns against the root', () => {
+			fs.mkdirSync('www', { recursive: true });
+			fs.mkdirSync('assets/entries', { recursive: true });
+			fs.writeFileSync('assets/entries/admin.ts', '');
+			fs.writeFileSync('assets/entries/front.ts', '');
+			fs.writeFileSync('assets/entries/ignore.css', '');
+
+			const plugin = vitePluginNette({ entry: 'entries/*.ts' });
+			const config = plugin.config({});
+			const input = config.build.rollupOptions.input;
+
+			assert.deepEqual(
+				input,
+				[path.resolve('assets/entries/admin.ts'), path.resolve('assets/entries/front.ts')],
+			);
+		});
+
+		it('should mix globs and literal entries and de-duplicate', () => {
+			fs.mkdirSync('www', { recursive: true });
+			fs.mkdirSync('assets/entries', { recursive: true });
+			fs.writeFileSync('assets/app.js', '');
+			fs.writeFileSync('assets/entries/admin.ts', '');
+
+			const plugin = vitePluginNette({ entry: ['app.js', 'entries/*.ts', 'app.js'] });
+			const config = plugin.config({});
+			const input = config.build.rollupOptions.input;
+
+			assert.deepEqual(
+				input,
+				[path.resolve('assets/app.js'), path.resolve('assets/entries/admin.ts')],
+			);
+		});
 	});
 });

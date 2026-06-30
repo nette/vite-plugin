@@ -28,6 +28,26 @@ function escapeRegExp(str: string): string {
 }
 
 /**
+ * Resolves entry points to absolute paths, expanding any glob patterns (e.g. `entries/*.ts`)
+ * against the root directory. Named entries are intentionally unsupported: Vite keys the
+ * manifest by source path, not by input name, so the name would be invisible to {asset}.
+ */
+function resolveEntries(entry: string | string[], root: string): string[] {
+	let rootDir = path.resolve(root);
+	let result = (new Set<string>);
+	for (let pattern of Array.isArray(entry) ? entry : [entry]) {
+		if (/[*?[{]/.test(pattern)) {
+			for (let match of fs.globSync(pattern, { cwd: rootDir }).sort()) {
+				result.add(path.resolve(rootDir, match));
+			}
+		} else {
+			result.add(path.resolve(rootDir, pattern));
+		}
+	}
+	return [...result];
+}
+
+/**
  * Builds a dev server URL, omitting the port when it is the protocol's default.
  */
 function buildDevServerUrl(protocol: 'http' | 'https', host: string, port: number): string {
@@ -156,11 +176,7 @@ export default function vitePluginNette(config: PluginConfig = {}): PluginOption
 		config(userConfig) {
 			let root = userConfig.root ?? 'assets';
 			let host = normalizeHost(pluginConfig.host || userConfig.server?.host);
-			let entry;
-			if (pluginConfig.entry) {
-				entry = (Array.isArray(pluginConfig.entry) ? pluginConfig.entry : [pluginConfig.entry])
-					.map((entry) => path.resolve(root, entry));
-			}
+			let entry = pluginConfig.entry ? resolveEntries(pluginConfig.entry, root) : undefined;
 
 			return {
 				root,
