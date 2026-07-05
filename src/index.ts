@@ -4,11 +4,19 @@ import { defaultAllowedOrigins, HttpServer, type PluginOption, ResolvedConfig, t
 
 interface PluginConfig {
 	infoFile?: string;
+	host?: string;
 	entry?: string | string[];
 }
 
 let resolvedConfig: ResolvedConfig;
 let pluginConfig: PluginConfig;
+
+/**
+ * Falls back to localhost for wildcard hosts, since http://0.0.0.0 is not usable by a browser.
+ */
+function normalizeHost(host: string | boolean | undefined): string {
+	return !host || host === true || host === '0.0.0.0' ? 'localhost' : host;
+}
 
 /**
  * Ensures the directory for `filePath` exists and writes `data` as a formatted JSON file.
@@ -33,15 +41,20 @@ function generateInfoFile(httpServer: HttpServer): void {
 	);
 
 	httpServer.on('listening', () => {
-		let protocol = resolvedConfig.server.https ? 'https' : 'http';
-		let host = resolvedConfig.server.host || 'localhost';
-		let port = (httpServer.address() as any).port;
-		let devServerUrl = `${protocol}://${host}:${port}`;
+		// A user-defined origin (e.g. behind a reverse proxy) wins over the local socket.
+		let devServerUrl = resolvedConfig.server.origin;
+		if (!devServerUrl) {
+			let protocol = resolvedConfig.server.https ? 'https' : 'http';
+			let host = normalizeHost(pluginConfig.host || resolvedConfig.server.host);
+			let port = (httpServer.address() as any).port;
+			let defaultPort = protocol === 'https' ? 443 : 80;
+			devServerUrl = `${protocol}://${host}` + (port === defaultPort ? '' : `:${port}`);
+
+			// Set the origin so Vite rewrites asset URLs to the dev server, not the backend.
+			resolvedConfig.server.origin = devServerUrl;
+		}
 
 		writeJson(infoFilePath, { devServer: devServerUrl });
-
-		// Update Vite server's origin field so other parts of Vite or downstream tools can pick it up
-		resolvedConfig.server.origin = devServerUrl;
 	});
 
 	httpServer.on('close', () => {
@@ -72,6 +85,7 @@ function getDefaultOutDir(): string {
 export default function vitePluginNette(config: PluginConfig = {}): PluginOption {
 	pluginConfig = {
 		infoFile: config.infoFile ?? '.vite/nette.json',
+		host: config.host,
 		entry: config.entry,
 	};
 
@@ -81,7 +95,7 @@ export default function vitePluginNette(config: PluginConfig = {}): PluginOption
 		config(userConfig) {
 			let root = userConfig.root ?? 'assets';
 			let protocol = userConfig.server?.https ? 'https' : 'http';
-			let host = userConfig.server?.host || 'localhost';
+			let host = normalizeHost(pluginConfig.host || userConfig.server?.host);
 			let entry;
 			if (pluginConfig.entry) {
 				entry = (Array.isArray(pluginConfig.entry) ? pluginConfig.entry : [pluginConfig.entry])
@@ -106,7 +120,9 @@ export default function vitePluginNette(config: PluginConfig = {}): PluginOption
 							`${protocol}://${host}`,
 						],
 					},
-					origin: '', // will be overridden later in generateInfoFile()
+					// Whitelist a custom host so it works behind a proxy (e.g. Docker).
+					allowedHosts: userConfig.server?.allowedHosts ?? (host === 'localhost' ? undefined : [host]),
+					origin: userConfig.server?.origin ?? '', // otherwise filled in generateInfoFile()
 				},
 			};
 		},

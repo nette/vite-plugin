@@ -177,6 +177,208 @@ describe('info file generation', () => {
 		plugin.configureServer(mockDevServer);
 	});
 
+	it('should use custom host from plugin options in info file', (done) => {
+		const plugin = vitePluginNette({ host: '192.168.1.200' });
+
+		const mockConfig = {
+			command: 'serve',
+			root: process.cwd(),
+			build: { outDir: path.join(process.cwd(), 'www', 'assets') },
+			server: { https: false, host: true, origin: '' },
+		};
+		plugin.configResolved(mockConfig);
+
+		const mockDevServer = {
+			httpServer: {
+				on: (event, callback) => {
+					if (event === 'listening') {
+						setTimeout(() => {
+							callback();
+
+							const infoFilePath = path.join(process.cwd(), 'www', 'assets', '.vite', 'nette.json');
+							const infoData = JSON.parse(fs.readFileSync(infoFilePath, 'utf8'));
+							assert.equal(infoData.devServer, 'http://192.168.1.200:5173');
+
+							done();
+						}, 10);
+					}
+				},
+				address: () => ({ port: 5173 }),
+			},
+		};
+
+		plugin.configureServer(mockDevServer);
+	});
+
+	it('should replace host value "true" with localhost in info file', (done) => {
+		const plugin = vitePluginNette();
+
+		const mockConfig = {
+			command: 'serve',
+			root: process.cwd(),
+			build: { outDir: path.join(process.cwd(), 'www', 'assets') },
+			server: { https: false, host: true, origin: '' },
+		};
+		plugin.configResolved(mockConfig);
+
+		const mockDevServer = {
+			httpServer: {
+				on: (event, callback) => {
+					if (event === 'listening') {
+						setTimeout(() => {
+							callback();
+
+							const infoFilePath = path.join(process.cwd(), 'www', 'assets', '.vite', 'nette.json');
+							const infoData = JSON.parse(fs.readFileSync(infoFilePath, 'utf8'));
+							assert.equal(infoData.devServer, 'http://localhost:5173');
+
+							done();
+						}, 10);
+					}
+				},
+				address: () => ({ port: 5173 }),
+			},
+		};
+
+		plugin.configureServer(mockDevServer);
+	});
+
+	it('should replace host value "0.0.0.0" with localhost in info file', (done) => {
+		const plugin = vitePluginNette();
+
+		const mockConfig = {
+			command: 'serve',
+			root: process.cwd(),
+			build: { outDir: path.join(process.cwd(), 'www', 'assets') },
+			server: { https: false, host: '0.0.0.0', origin: '' },
+		};
+		plugin.configResolved(mockConfig);
+
+		const mockDevServer = {
+			httpServer: {
+				on: (event, callback) => {
+					if (event === 'listening') {
+						setTimeout(() => {
+							callback();
+
+							const infoFilePath = path.join(process.cwd(), 'www', 'assets', '.vite', 'nette.json');
+							const infoData = JSON.parse(fs.readFileSync(infoFilePath, 'utf8'));
+							assert.equal(infoData.devServer, 'http://localhost:5173');
+
+							done();
+						}, 10);
+					}
+				},
+				address: () => ({ port: 5173 }),
+			},
+		};
+
+		plugin.configureServer(mockDevServer);
+	});
+
+	it('should omit port 80 from info file', (done) => {
+		const plugin = vitePluginNette();
+
+		const mockConfig = {
+			command: 'serve',
+			root: process.cwd(),
+			build: { outDir: path.join(process.cwd(), 'www', 'assets') },
+			server: { https: false, host: 'localhost', origin: '' },
+		};
+		plugin.configResolved(mockConfig);
+
+		const mockDevServer = {
+			httpServer: {
+				on: (event, callback) => {
+					if (event === 'listening') {
+						setTimeout(() => {
+							callback();
+
+							const infoFilePath = path.join(process.cwd(), 'www', 'assets', '.vite', 'nette.json');
+							const infoData = JSON.parse(fs.readFileSync(infoFilePath, 'utf8'));
+							assert.equal(infoData.devServer, 'http://localhost');
+							assert.equal(mockConfig.server.origin, 'http://localhost');
+
+							done();
+						}, 10);
+					}
+				},
+				address: () => ({ port: 80 }),
+			},
+		};
+
+		plugin.configureServer(mockDevServer);
+	});
+
+	it('should omit port 443 from HTTPS info file', (done) => {
+		const plugin = vitePluginNette();
+
+		const mockConfig = {
+			command: 'serve',
+			root: process.cwd(),
+			build: { outDir: path.join(process.cwd(), 'www', 'assets') },
+			server: { https: true, host: 'localhost', origin: '' },
+		};
+		plugin.configResolved(mockConfig);
+
+		const mockDevServer = {
+			httpServer: {
+				on: (event, callback) => {
+					if (event === 'listening') {
+						setTimeout(() => {
+							callback();
+
+							const infoFilePath = path.join(process.cwd(), 'www', 'assets', '.vite', 'nette.json');
+							const infoData = JSON.parse(fs.readFileSync(infoFilePath, 'utf8'));
+							assert.equal(infoData.devServer, 'https://localhost');
+
+							done();
+						}, 10);
+					}
+				},
+				address: () => ({ port: 443 }),
+			},
+		};
+
+		plugin.configureServer(mockDevServer);
+	});
+
+	it('should respect a user-defined server.origin behind a proxy', (done) => {
+		const plugin = vitePluginNette();
+
+		// Vite binds host:true on port 5173 internally, but is reachable via a public HTTPS URL.
+		const mockConfig = {
+			command: 'serve',
+			root: process.cwd(),
+			build: { outDir: path.join(process.cwd(), 'www', 'assets') },
+			server: { https: false, host: true, origin: 'https://app.example.com' },
+		};
+		plugin.configResolved(mockConfig);
+
+		const mockDevServer = {
+			httpServer: {
+				on: (event, callback) => {
+					if (event === 'listening') {
+						setTimeout(() => {
+							callback();
+
+							const infoFilePath = path.join(process.cwd(), 'www', 'assets', '.vite', 'nette.json');
+							const infoData = JSON.parse(fs.readFileSync(infoFilePath, 'utf8'));
+							assert.equal(infoData.devServer, 'https://app.example.com');
+							// The user-defined origin must not be overwritten.
+							assert.equal(mockConfig.server.origin, 'https://app.example.com');
+
+							done();
+						}, 10);
+					}
+				},
+				address: () => ({ port: 5173 }),
+			},
+		};
+
+		plugin.configureServer(mockDevServer);
+	});
+
 	it('should use custom info file path', (done) => {
 		const plugin = vitePluginNette({ infoFile: 'custom/path/info.json' });
 
