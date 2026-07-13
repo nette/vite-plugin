@@ -138,6 +138,24 @@ describe('vite-plugin-nette', () => {
 			assert.deepEqual(config.server.allowedHosts, ['my.host']);
 		});
 
+		it('should derive CORS origin from appUrl regardless of dev server host', () => {
+			fs.mkdirSync('www', { recursive: true });
+			const plugin = vitePluginNette({ appUrl: 'https://myapp.local' });
+			const config = plugin.config({ server: { host: 'localhost' } });
+
+			// The app runs on https://myapp.local (any port), even though Vite is on localhost.
+			assert.ok(corsAllows(config.server.cors.origin, 'https://myapp.local'));
+			assert.ok(corsAllows(config.server.cors.origin, 'http://myapp.local:8000'));
+			// allowedHosts stays tied to the dev server host, not the app.
+			assert.equal(config.server.allowedHosts, undefined);
+		});
+
+		it('should throw on an invalid appUrl', () => {
+			fs.mkdirSync('www', { recursive: true });
+			const plugin = vitePluginNette({ appUrl: 'not a url' });
+			assert.throws(() => plugin.config({}), /"appUrl" option is not a valid URL/);
+		});
+
 		it('should handle HTTPS configuration', () => {
 			const plugin = vitePluginNette();
 			const userConfig = {

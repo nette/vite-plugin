@@ -6,6 +6,7 @@ import { defaultAllowedOrigins, HttpServer, type PluginOption, ResolvedConfig, t
 interface PluginConfig {
 	infoFile?: string;
 	host?: string;
+	appUrl?: string;
 	entry?: string | string[];
 }
 
@@ -166,6 +167,7 @@ export default function vitePluginNette(config: PluginConfig = {}): PluginOption
 	let pluginConfig: PluginConfig = {
 		infoFile: config.infoFile ?? '.vite/nette.json',
 		host: config.host,
+		appUrl: config.appUrl,
 		entry: config.entry,
 	};
 	let resolvedConfig: ResolvedConfig;
@@ -177,6 +179,18 @@ export default function vitePluginNette(config: PluginConfig = {}): PluginOption
 			let root = userConfig.root ?? 'assets';
 			let host = normalizeHost(pluginConfig.host || userConfig.server?.host);
 			let entry = pluginConfig.entry ? resolveEntries(pluginConfig.entry, root) : undefined;
+
+			// CORS is about which page origin may fetch from the dev server: that is the PHP
+			// app, whose host/scheme/port may all differ from the dev server. When appUrl is
+			// given, use its host; otherwise fall back to the (dev server) host.
+			let corsHost = host;
+			if (pluginConfig.appUrl) {
+				try {
+					corsHost = new URL(pluginConfig.appUrl).hostname;
+				} catch {
+					throw new Error(`The "appUrl" option is not a valid URL: "${pluginConfig.appUrl}"`);
+				}
+			}
 
 			return {
 				root,
@@ -191,11 +205,11 @@ export default function vitePluginNette(config: PluginConfig = {}): PluginOption
 				},
 				server: {
 					cors: userConfig.server?.cors ?? {
-						origin: [ // Include both Vite's default allowed origins and this project's host
+						origin: [ // Include both Vite's default allowed origins and the app's host
 							defaultAllowedOrigins,
 							// Allow the host over http or https on any port: the PHP app and the dev
 							// server always differ in port, and often in scheme too.
-							new RegExp(`^https?://${escapeRegExp(host)}(?::\\d+)?$`),
+							new RegExp(`^https?://${escapeRegExp(corsHost)}(?::\\d+)?$`),
 						],
 					},
 					// Whitelist a custom host so it works behind a proxy (e.g. Docker).
