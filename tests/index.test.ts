@@ -156,6 +156,19 @@ describe('vite-plugin-nette', () => {
 			assert.throws(() => plugin.config({}), /"appUrl" option is not a valid URL/);
 		});
 
+		it('should bind to all interfaces for host "network"', () => {
+			fs.mkdirSync('www', { recursive: true });
+			const plugin = vitePluginNette({ host: 'network' });
+			const config = plugin.config({});
+			assert.equal(config.server.host, true);
+		});
+
+		it('should not override an explicit server.host when using network', () => {
+			const plugin = vitePluginNette({ host: 'network' });
+			const config = plugin.config({ server: { host: 'myapp.local' }, build: { outDir: 'x' } });
+			assert.equal(config.server.host, undefined);
+		});
+
 		it('should handle HTTPS configuration', () => {
 			const plugin = vitePluginNette();
 			const userConfig = {

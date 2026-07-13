@@ -1,5 +1,6 @@
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 import type { AddressInfo } from 'net';
 import { defaultAllowedOrigins, HttpServer, type PluginOption, ResolvedConfig, type ViteDevServer } from 'vite';
 
@@ -19,6 +20,28 @@ function normalizeHost(host: string | boolean | undefined): string {
 		return 'localhost';
 	}
 	return host.includes(':') && !host.startsWith('[') ? `[${host}]` : host;
+}
+
+/**
+ * Returns the machine's first non-internal IPv4 address, or undefined if none is available.
+ */
+function getNetworkHost(): string | undefined {
+	for (let addresses of Object.values(os.networkInterfaces())) {
+		for (let addr of addresses ?? []) {
+			if (addr.family === 'IPv4' && !addr.internal) {
+				return addr.address;
+			}
+		}
+	}
+	return undefined;
+}
+
+/**
+ * Resolves the configured host, turning the 'network' sentinel into the machine's LAN IP so the
+ * dev server URL is reachable from other devices (e.g. a phone). Otherwise behaves like normalizeHost.
+ */
+function resolveHost(host: string | boolean | undefined): string {
+	return normalizeHost(host === 'network' ? getNetworkHost() : host);
 }
 
 /**
@@ -122,7 +145,7 @@ function generateInfoFile(httpServer: HttpServer, resolvedConfig: ResolvedConfig
 		let devServerUrl = resolvedConfig.server.origin;
 		if (!devServerUrl) {
 			let protocol: 'http' | 'https' = resolvedConfig.server.https ? 'https' : 'http';
-			let host = normalizeHost(pluginConfig.host || resolvedConfig.server.host);
+			let host = resolveHost(pluginConfig.host || resolvedConfig.server.host);
 			let port = (httpServer.address() as AddressInfo).port;
 			devServerUrl = buildDevServerUrl(protocol, host, port);
 
@@ -177,7 +200,7 @@ export default function vitePluginNette(config: PluginConfig = {}): PluginOption
 
 		config(userConfig) {
 			let root = userConfig.root ?? 'assets';
-			let host = normalizeHost(pluginConfig.host || userConfig.server?.host);
+			let host = resolveHost(pluginConfig.host || userConfig.server?.host);
 			let entry = pluginConfig.entry ? resolveEntries(pluginConfig.entry, root) : undefined;
 
 			// CORS is about which page origin may fetch from the dev server: that is the PHP
@@ -204,6 +227,8 @@ export default function vitePluginNette(config: PluginConfig = {}): PluginOption
 					},
 				},
 				server: {
+					// 'network' means "expose on the LAN", so bind to all interfaces unless the user picked a host.
+					...(pluginConfig.host === 'network' && userConfig.server?.host === undefined ? { host: true } : {}),
 					cors: userConfig.server?.cors ?? {
 						origin: [ // Include both Vite's default allowed origins and the app's host
 							defaultAllowedOrigins,
