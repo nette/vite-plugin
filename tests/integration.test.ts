@@ -60,4 +60,40 @@ describe('integration with a real Vite dev server', () => {
 			await server.close();
 		}
 	});
+
+	it('sends a full-reload only when a refresh-matched file changes', async function () {
+		this.timeout(20000);
+		fs.mkdirSync('app', { recursive: true });
+
+		const server = await createServer({
+			configFile: false,
+			logLevel: 'silent',
+			plugins: [vitePluginNette({ entry: 'app.js', refresh: 'app/**/*.latte' })],
+			server: { port: 0 },
+		});
+
+		try {
+			await server.listen();
+
+			let reloads = 0;
+			const hot = server.hot ?? server.ws;
+			const origSend = hot.send.bind(hot);
+			hot.send = (payload) => {
+				if (payload && payload.type === 'full-reload') {
+					reloads++;
+				}
+				return origSend(payload);
+			};
+
+			// Non-matching file: no reload.
+			server.watcher.emit('change', path.join(tempDir, 'app', 'notes.txt'));
+			assert.equal(reloads, 0);
+
+			// Matching Latte template: exactly one reload.
+			server.watcher.emit('change', path.join(tempDir, 'app', 'Home', 'default.latte'));
+			assert.equal(reloads, 1);
+		} finally {
+			await server.close();
+		}
+	});
 });

@@ -2,6 +2,7 @@ import path from 'path';
 import fs from 'fs';
 import os from 'os';
 import type { AddressInfo } from 'net';
+import picomatch from 'picomatch';
 import { defaultAllowedOrigins, HttpServer, type PluginOption, ResolvedConfig, type ViteDevServer } from 'vite';
 
 interface PluginConfig {
@@ -9,6 +10,7 @@ interface PluginConfig {
 	host?: string;
 	appUrl?: string;
 	entry?: string | string[];
+	refresh?: string | string[];
 }
 
 /**
@@ -134,6 +136,30 @@ function getInfoFilePath(resolvedConfig: ResolvedConfig, pluginConfig: PluginCon
 }
 
 /**
+ * Triggers a full page reload whenever a file matching one of the `refresh` globs changes.
+ * Useful for server-rendered templates (Latte) and PHP, which are outside Vite's module graph.
+ */
+function setupRefresh(server: ViteDevServer, refresh: string | string[]): void {
+	let toPosix = (p: string) => p.replace(/\\/g, '/');
+	let patterns = (Array.isArray(refresh) ? refresh : [refresh]).map((p) => toPosix(path.resolve(p)));
+	let isMatch = picomatch(patterns, { dot: true });
+
+	// chokidar v4 no longer expands globs, so watch each pattern's static base directory instead.
+	for (let pattern of patterns) {
+		server.watcher.add(picomatch.scan(pattern).base);
+	}
+
+	let reload = (file: string) => {
+		if (isMatch(toPosix(file))) {
+			(server.hot ?? server.ws).send({ type: 'full-reload', path: '*' });
+		}
+	};
+	server.watcher.on('add', reload);
+	server.watcher.on('change', reload);
+	server.watcher.on('unlink', reload);
+}
+
+/**
  * Once the HTTP server starts listening, generate a JSON file containing the dev server URL.
  * Also sets the Vite server's `origin` to the same URL for use elsewhere.
  */
@@ -192,6 +218,7 @@ export default function vitePluginNette(config: PluginConfig = {}): PluginOption
 		host: config.host,
 		appUrl: config.appUrl,
 		entry: config.entry,
+		refresh: config.refresh,
 	};
 	let resolvedConfig: ResolvedConfig;
 
@@ -258,6 +285,9 @@ export default function vitePluginNette(config: PluginConfig = {}): PluginOption
 			// This hook only runs in serve mode; httpServer is null in middleware mode.
 			if (devServer.httpServer) {
 				generateInfoFile(devServer.httpServer, resolvedConfig, pluginConfig);
+			}
+			if (pluginConfig.refresh) {
+				setupRefresh(devServer, pluginConfig.refresh);
 			}
 		},
 	};

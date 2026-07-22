@@ -32,6 +32,7 @@
 	"devDependencies": {
 		"@nette/eslint-plugin": "^0.1.2",
 		"@types/node": "^22.15.29",
+		"@types/picomatch": "^4.0.3",
 		"eslint": "^9.26.0",
 		"mocha": "^11.2.2",
 		"tsx": "^4.19.4",
@@ -45,5 +46,8 @@
 		"test": "npx tsx node_modules/mocha/bin/mocha \"tests/**/*.ts\"",
 		"lint": "eslint --cache",
 		"lint:fix": "eslint --cache --fix"
+	},
+	"dependencies": {
+		"picomatch": "^4.0.5"
 	}
 }
