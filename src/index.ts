@@ -63,6 +63,9 @@ function resolveEntries(entry: string | string[], root: string): string[] {
 	let result = (new Set<string>);
 	for (let pattern of Array.isArray(entry) ? entry : [entry]) {
 		if (/[*?[{]/.test(pattern)) {
+			if (typeof fs.globSync !== 'function') {
+				throw new Error(`Glob entry patterns require Node.js 22 or newer (got "${pattern}").`);
+			}
 			for (let match of fs.globSync(pattern, { cwd: rootDir }).sort()) {
 				result.add(path.resolve(rootDir, match));
 			}
@@ -101,16 +104,16 @@ function installSignalHandlers(): void {
 	}
 	signalHandlersInstalled = true;
 
-	let onSignal = () => {
-		removeAllInfoFiles();
-		process.exit(0);
-	};
-	process.on('SIGINT', onSignal);
-	process.on('SIGTERM', onSignal);
+	// A signal only needs to trigger the exit; the single 'exit' handler does the actual
+	// cleanup, so it also covers process.exit() calls made from anywhere else.
+	let quit = () => process.exit(0);
+	process.on('SIGINT', quit);
+	process.on('SIGTERM', quit);
 	if (process.platform === 'win32') {
-		process.on('SIGBREAK', onSignal); // Ctrl+Break / console window close on Windows
+		process.on('SIGBREAK', quit); // Ctrl+Break / console window close on Windows
 	}
-	process.on('exit', removeAllInfoFiles); // last resort for any other exit path (sync only)
+	process.on('exit', removeAllInfoFiles); // sync-only context
+
 }
 
 /**
