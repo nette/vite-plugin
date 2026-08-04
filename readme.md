@@ -36,7 +36,7 @@ Installation
 npm install -D vite @nette/vite-plugin
 ```
 
-Works with Vite 6.2+, 7 and 8, on whichever Node.js version your Vite requires (glob patterns in `entry` additionally need Node.js 22+). On the PHP side you need [nette/assets](https://github.com/nette/assets).
+Works with Vite 6.2+, 7 and 8 on Node.js 22 or newer. On the PHP side you need [nette/assets](https://github.com/nette/assets).
 
 
 Quick Start
@@ -142,7 +142,7 @@ nette({
 
 Insert them in the templates that need them: `{asset 'app.js'}` in the layout, `{asset 'admin.js'}` in the admin one.
 
-When every entry point lives in its own directory, use a glob instead of a hand-written list. It is expanded relative to `root` and needs Node.js 22+:
+When every entry point lives in its own directory, use a glob instead of a hand-written list. It is expanded relative to `root`:
 
 ```js
 nette({

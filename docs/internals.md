@@ -40,7 +40,7 @@ covers direct `process.exit()` calls. Keep this one-time, process-scoped structu
   non-`localhost` host is also auto-whitelisted in `server.allowedHosts`, so a custom
   host works behind a proxy (e.g. Docker).
 - **Named entries are deliberately unsupported.** `resolveEntries` resolves patterns
-  (including globs, which need Node 22+) to **absolute paths**, because Vite keys the
+  (including globs) to **absolute paths**, because Vite keys the
   manifest by **source path, not input name** — a name would be invisible to `{asset}`
   on the PHP side.
 - **CORS is about which page origin may fetch from the dev server** — that origin is

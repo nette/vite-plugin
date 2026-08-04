@@ -26,6 +26,9 @@
 			"import": "./dist/index.js"
 		}
 	},
+	"engines": {
+		"node": ">=22.0.0"
+	},
 	"peerDependencies": {
 		"vite": "^6.2.0 || ^7.0.0 || ^8.0.0"
 	},

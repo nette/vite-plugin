@@ -63,9 +63,6 @@ function resolveEntries(entry: string | string[], root: string): string[] {
 	let result = (new Set<string>);
 	for (let pattern of Array.isArray(entry) ? entry : [entry]) {
 		if (/[*?[{]/.test(pattern)) {
-			if (typeof fs.globSync !== 'function') {
-				throw new Error(`Glob entry patterns require Node.js 22 or newer (got "${pattern}").`);
-			}
 			for (let match of fs.globSync(pattern, { cwd: rootDir }).sort()) {
 				result.add(path.resolve(rootDir, match));
 			}
